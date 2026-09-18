@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 
 from app.models import Evidence
 from app.services.evidence_search import SearchResult, search_web
+from app.services.source_reader import read_source
 
 router = APIRouter(prefix="/verification", tags=["verification"])
 
@@ -15,6 +16,16 @@ class EvidenceSearchRequest(BaseModel):
 class EvidenceSearchResponse(BaseModel):
     claim: str
     results: list[Evidence]
+
+
+class SourceReadRequest(BaseModel):
+    url: str
+
+
+class SourceReadResponse(BaseModel):
+    url: str
+    title: str | None
+    text: str
 
 
 @router.post("/search", response_model=EvidenceSearchResponse)
@@ -35,3 +46,13 @@ def find_evidence(request: EvidenceSearchRequest) -> EvidenceSearchResponse:
         for result in found
     ]
     return EvidenceSearchResponse(claim=request.claim, results=evidence)
+
+
+@router.post("/read-source", response_model=SourceReadResponse)
+def read_evidence_source(request: SourceReadRequest) -> SourceReadResponse:
+    try:
+        source = read_source(request.url)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Source could not be read: {exc}") from exc
+
+    return SourceReadResponse(url=source.url, title=source.title, text=source.text)
