@@ -4,8 +4,10 @@ from app.ai.client import AIAnalysisError, analyze_article
 from app.schemas import AnalyzeRequest, ArticleAnalysis, Statement
 from app.services.article_extractor import ArticleExtractionError, extract_article
 from app.services.verification import build_initial_verification
+from app.api.verification import router as verification_router
 
 app = FastAPI(title="CivicLens", version="0.1.0")
+app.include_router(verification_router)
 
 
 @app.get("/")
