@@ -1,22 +1,32 @@
+import json
 import os
 
-from openai import OpenAI
+from google import genai
+from google.genai import types
 
 
-MODEL = os.getenv("OPENAI_MODEL", "gpt-5.6-luna")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 
 def main() -> None:
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        raise SystemExit("OPENAI_API_KEY is missing")
+        raise SystemExit("GEMINI_API_KEY is missing")
 
-    client = OpenAI(api_key=api_key)
-    response = client.responses.create(
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(
         model=MODEL,
-        input="Return exactly this JSON object: {\"status\":\"ok\"}",
+        contents="Return exactly this JSON object: {\"status\":\"ok\"}",
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema={"type": "OBJECT", "properties": {"status": {"type": "STRING"}}},
+        ),
     )
-    print(response.output_text)
+    result = json.loads(response.text)
+    if result.get("status") != "ok":
+        raise SystemExit(f"Unexpected response: {result}")
+    print("Gemini API: OK")
+    print(response.text)
 
 
 if __name__ == "__main__":
