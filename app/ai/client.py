@@ -23,18 +23,16 @@ Return valid JSON only, matching the requested structure.
 """.strip()
 
 
-# Gemini's structured-output schema does not accept JSON Schema union types such as
-# ["string", "null"] in this configuration. Use empty strings for unknown optional
-# text fields so the same schema works reliably across providers.
+# Gemini structured output accepts a restricted JSON-schema subset.
+# In particular, additionalProperties is not accepted, so keep the schema
+# limited to the fields and types that Gemini supports.
 OUTPUT_SCHEMA = {
     "type": "object",
-    "additionalProperties": False,
     "properties": {
         "statements": {
             "type": "array",
             "items": {
                 "type": "object",
-                "additionalProperties": False,
                 "properties": {
                     "speaker": {"type": "string"},
                     "date": {"type": "string"},
@@ -43,7 +41,6 @@ OUTPUT_SCHEMA = {
                         "type": "array",
                         "items": {
                             "type": "object",
-                            "additionalProperties": False,
                             "properties": {
                                 "text": {"type": "string"},
                                 "claim_type": {
