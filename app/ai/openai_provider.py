@@ -22,6 +22,13 @@ class OpenAIProvider(AIProvider):
             model=self.model,
             instructions=instructions,
             input=input_text,
-            text={"format": schema},
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "civiclens_output",
+                    "strict": True,
+                    "schema": schema,
+                }
+            },
         )
         return json.loads(response.output_text)
