@@ -1,7 +1,8 @@
-import json
-import os
+from __future__ import annotations
 
-from openai import OpenAI
+import json
+
+from app.ai.factory import get_ai_provider
 
 
 class AIAnalysisError(Exception):
@@ -22,65 +23,51 @@ Return valid JSON only, matching the requested structure.
 
 
 OUTPUT_SCHEMA = {
-    "type": "json_schema",
-    "name": "civiclens_extraction",
-    "strict": True,
-    "schema": {
-        "type": "object",
-        "additionalProperties": False,
-        "properties": {
-            "statements": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {
-                        "speaker": {"type": ["string", "null"]},
-                        "date": {"type": ["string", "null"]},
-                        "text": {"type": "string"},
-                        "claims": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "additionalProperties": False,
-                                "properties": {
-                                    "text": {"type": "string"},
-                                    "claim_type": {
-                                        "type": "string",
-                                        "enum": ["FACT", "ASSESSMENT", "PREDICTION", "OPINION", "UNCLEAR"],
-                                    },
-                                    "checkable": {"type": "boolean"},
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "statements": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "speaker": {"type": ["string", "null"]},
+                    "date": {"type": ["string", "null"]},
+                    "text": {"type": "string"},
+                    "claims": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {
+                                "text": {"type": "string"},
+                                "claim_type": {
+                                    "type": "string",
+                                    "enum": ["FACT", "ASSESSMENT", "PREDICTION", "OPINION", "UNCLEAR"],
                                 },
-                                "required": ["text", "claim_type", "checkable"],
+                                "checkable": {"type": "boolean"},
                             },
+                            "required": ["text", "claim_type", "checkable"],
                         },
                     },
-                    "required": ["speaker", "date", "text", "claims"],
                 },
-            }
-        },
-        "required": ["statements"],
+                "required": ["speaker", "date", "text", "claims"],
+            },
+        }
     },
+    "required": ["statements"],
 }
 
 
 def analyze_article(title: str | None, text: str) -> dict:
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise AIAnalysisError("OPENAI_API_KEY is not configured")
-
-    model = os.getenv("OPENAI_MODEL", "gpt-5.6-luna")
-    client = OpenAI(api_key=api_key)
-
     article = f"TITLE:\n{title or '(no title)'}\n\nARTICLE:\n{text}"
-
     try:
-        response = client.responses.create(
-            model=model,
+        provider = get_ai_provider()
+        return provider.generate_json(
             instructions=SYSTEM_PROMPT,
-            input=article,
-            text={"format": OUTPUT_SCHEMA},
+            input_text=article,
+            schema=OUTPUT_SCHEMA,
         )
-        return json.loads(response.output_text)
     except Exception as exc:
-        raise AIAnalysisError(f"OpenAI analysis failed: {exc}") from exc
+        raise AIAnalysisError(f"AI analysis failed: {exc}") from exc
