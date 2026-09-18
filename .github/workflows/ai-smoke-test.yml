@@ -29,4 +29,5 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: gemini-3.6-flash
           CIVICLENS_TEST_URL: https://point.md/ru/novosti/proisshestviya/vozle-kolonitsy-obnaruzhili-fragmenty-drona/
+          PYTHONPATH: .
         run: python scripts/article_smoke_test.py
