@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException
 
-from app.schemas import AnalyzeRequest, ArticleAnalysis
+from app.ai.client import AIAnalysisError, analyze_article
+from app.schemas import AnalyzeRequest, ArticleAnalysis, Statement
 from app.services.article_extractor import ArticleExtractionError, extract_article
-from app.services.statement_extractor import extract_statements
 
 app = FastAPI(title="CivicLens", version="0.1.0")
 
@@ -21,6 +21,16 @@ def health() -> dict[str, str]:
 def analyze(request: AnalyzeRequest) -> ArticleAnalysis:
     try:
         title, text = extract_article(str(request.url))
-        return extract_statements(str(request.url), title, text)
+        result = analyze_article(title, text)
+        statements = [Statement.model_validate(item) for item in result["statements"]]
+        return ArticleAnalysis(
+            url=request.url,
+            title=title,
+            text_length=len(text),
+            statements=statements,
+            status="EXTRACTED" if statements else "NO_STATEMENT_FOUND",
+        )
     except ArticleExtractionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except AIAnalysisError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
