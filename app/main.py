@@ -3,6 +3,7 @@ from fastapi import FastAPI, HTTPException
 from app.ai.client import AIAnalysisError, analyze_article
 from app.schemas import AnalyzeRequest, ArticleAnalysis, Statement
 from app.services.article_extractor import ArticleExtractionError, extract_article
+from app.services.verification import build_initial_verification
 
 app = FastAPI(title="CivicLens", version="0.1.0")
 
@@ -23,12 +24,20 @@ def analyze(request: AnalyzeRequest) -> ArticleAnalysis:
         title, text = extract_article(str(request.url))
         result = analyze_article(title, text)
         statements = [Statement.model_validate(item) for item in result["statements"]]
+
+        verification = []
+        for statement in statements:
+            for claim in statement.claims:
+                if claim.checkable:
+                    verification.append(build_initial_verification(claim.text))
+
         return ArticleAnalysis(
             url=request.url,
             title=title,
             text_length=len(text),
             statements=statements,
             status="EXTRACTED" if statements else "NO_STATEMENT_FOUND",
+            verification=verification,
         )
     except ArticleExtractionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
