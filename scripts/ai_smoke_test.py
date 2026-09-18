@@ -3,7 +3,6 @@ import os
 import time
 
 from google import genai
-from google.genai import types
 
 
 MODELS = list(dict.fromkeys([
@@ -26,29 +25,36 @@ def main() -> None:
     for model in MODELS:
         for attempt in range(2):
             try:
-                response = client.models.generate_content(
+                interaction = client.interactions.create(
                     model=model,
-                    contents='Return exactly this JSON object: {"status":"ok"}',
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        response_schema={
-                            "type": "OBJECT",
-                            "properties": {"status": {"type": "STRING"}},
+                    input='Return exactly this JSON object: {"status":"ok"}',
+                    response_format={
+                        "type": "text",
+                        "mime_type": "application/json",
+                        "schema": {
+                            "type": "object",
+                            "properties": {"status": {"type": "string"}},
+                            "required": ["status"],
                         },
-                    ),
+                    },
                 )
-                result = json.loads(response.text)
+                result = json.loads(interaction.output_text)
                 if result.get("status") != "ok":
                     raise SystemExit(f"Unexpected response: {result}")
                 print(f"Gemini API: OK ({model})")
-                print(response.text)
+                print(interaction.output_text)
                 return
             except Exception as exc:
                 last_error = exc
-                if "503" not in str(exc) and "UNAVAILABLE" not in str(exc):
+                error_text = str(exc)
+                transient = any(
+                    marker in error_text
+                    for marker in ("503", "UNAVAILABLE", "RemoteProtocolError", "Server disconnected")
+                )
+                if not transient:
                     raise
                 if attempt == 0:
-                    time.sleep(2)
+                    time.sleep(3)
 
     raise SystemExit(f"All Gemini models are temporarily unavailable. Last error: {last_error}")
 
