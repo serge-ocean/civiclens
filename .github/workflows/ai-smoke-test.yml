@@ -21,13 +21,13 @@ jobs:
       - name: Test Gemini API
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: gemini-3.8-flash
+          GEMINI_MODEL: gemini-3.7-flash
         run: python scripts/ai_smoke_test.py
 
       - name: Test real article analysis
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: gemini-3.8-flash
+          GEMINI_MODEL: gemini-3.7-flash
           CIVICLENS_TEST_URL: https://point.md/ru/novosti/proisshestviya/vozle-kolonitsy-obnaruzhili-fragmenty-drona/
           PYTHONPATH: .
         run: python scripts/article_smoke_test.py
