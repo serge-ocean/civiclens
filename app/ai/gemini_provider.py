@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import time
 from typing import Any
 
 from google import genai
@@ -11,7 +10,12 @@ from app.ai.provider import AIProvider
 
 
 class GeminiProvider(AIProvider):
-    """Gemini API provider using the current Interactions API with fallbacks."""
+    """Gemini provider using the Interactions API.
+
+    Deliberately makes exactly one API request per generate_json() call.
+    Retries and model fallbacks are avoided because they can consume
+    additional quota and hide the original API failure.
+    """
 
     def __init__(self, api_key: str | None = None, model: str | None = None) -> None:
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
@@ -20,36 +24,29 @@ class GeminiProvider(AIProvider):
             raise RuntimeError("GEMINI_API_KEY is not configured")
         self.client = genai.Client(api_key=self.api_key)
 
-    def generate_json(self, *, instructions: str, input_text: str, schema: dict[str, Any]) -> dict[str, Any]:
-        models = [self.model]
-        for fallback in ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"):
-            if fallback not in models:
-                models.append(fallback)
+    def generate_json(
+        self,
+        *,
+        instructions: str,
+        input_text: str,
+        schema: dict[str, Any],
+    ) -> dict[str, Any]:
+        interaction = self.client.interactions.create(
+            model=self.model,
+            input=f"{instructions}\n\nINPUT:\n{input_text}",
+            response_format={
+                "type": "text",
+                "mime_type": "application/json",
+                "schema": schema,
+            },
+        )
 
-        last_error: Exception | None = None
-        for model in models:
-            for attempt in range(2):
-                try:
-                    interaction = self.client.interactions.create(
-                        model=model,
-                        input=f"{instructions}\n\nINPUT:\n{input_text}",
-                        response_format={
-                            "type": "text",
-                            "mime_type": "application/json",
-                            "schema": schema,
-                        },
-                    )
-                    return json.loads(interaction.output_text)
-                except Exception as exc:
-                    last_error = exc
-                    error_text = str(exc)
-                    transient = any(
-                        marker in error_text
-                        for marker in ("503", "UNAVAILABLE", "RemoteProtocolError", "Server disconnected")
-                    )
-                    if not transient:
-                        raise
-                    if attempt == 0:
-                        time.sleep(3)
+        try:
+            result = json.loads(interaction.output_text)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("Gemini returned invalid JSON") from exc
 
-        raise RuntimeError(f"Gemini failed on all fallback models: {last_error}") from last_error
+        if not isinstance(result, dict):
+            raise RuntimeError("Gemini returned JSON, but the top-level value is not an object")
+
+        return result
