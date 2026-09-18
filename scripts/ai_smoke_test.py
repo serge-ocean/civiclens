@@ -5,7 +5,7 @@ from google import genai
 from google.genai import types
 
 
-MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
 
 
 def main() -> None:
@@ -25,7 +25,7 @@ def main() -> None:
     result = json.loads(response.text)
     if result.get("status") != "ok":
         raise SystemExit(f"Unexpected response: {result}")
-    print("Gemini API: OK")
+    print(f"Gemini API: OK ({MODEL})")
     print(response.text)
 
 
